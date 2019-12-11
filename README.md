@@ -1,1 +1,1 @@
-# projecta
+# Project A
