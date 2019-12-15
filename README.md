@@ -2,8 +2,9 @@
 
 ## TODO
 
-- [ ] HTTPS
-- [ ] Authentication
+- [x] HTTPS
+- [X] Authentication
 - [x] Blink led 
 - [ ] Camera
+- [ ] Configure Router
 
