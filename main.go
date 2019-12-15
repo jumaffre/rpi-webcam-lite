@@ -3,10 +3,21 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"github.com/stianeikeland/go-rpio"
 )
 
 func HelloServer(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, %s", r.URL)
+	
+	err := rpio.Open()
+	if err != nil {
+		panic(fmt.Sprint("unable to open gpio", err.Error()))
+	}
+	defer rpio.Close()
+
+	pin := rpio.Pin(26)
+
+	pin.Output()
+	pin.Toggle()
 }
 
 func main() {

@@ -4,5 +4,6 @@
 
 - [ ] HTTPS
 - [ ] Authentication
-- [ ] Blink led 
+- [x] Blink led 
+- [ ] Camera
 
