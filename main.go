@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"github.com/stianeikeland/go-rpio"
+	"log"
 )
 
 func HelloServer(w http.ResponseWriter, r *http.Request) {
@@ -23,5 +24,8 @@ func HelloServer(w http.ResponseWriter, r *http.Request) {
 func main() {
 	fmt.Println("Starting web server...")
 	http.HandleFunc("/", HelloServer)
-	http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
+	if err != nil {
+		log.Fatal("ListenAndServerTLS", err)
+	}
 }
