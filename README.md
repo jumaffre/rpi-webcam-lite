@@ -1,5 +1,7 @@
 # Project A
 
+Real-Time Camera Raspberry Pi HTTP Server.
+
 ## TODO
 
 - [x] HTTPS
@@ -9,6 +11,8 @@
 - [x] Serve static image
 - [x] Serve continuous flux
 - [ ] Cleanup
+- [ ] Include TimeStamp
 - [ ] Configure Router
-- [ ] Stream camera via HTTP
+- [ ] Nice GUI
+
 

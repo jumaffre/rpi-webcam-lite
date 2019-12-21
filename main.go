@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"image"
 	"image/jpeg"
 	"mime/multipart"
@@ -15,6 +16,7 @@ import (
 
 const (
 	HTTPS_SERVER_PORT = 4443
+	HTTPS_DIGEST_FILE = "projecta.htdigest"
 
 	WEBCAM_DEVICE        = "/dev/video0"
 	WEBCAM_PIXEL_FORMAT  = 0x56595559
@@ -26,9 +28,6 @@ const (
 )
 
 func httpImage(li chan *bytes.Buffer) {
-
-	// secrets := auth.HtdigestFileProvider("projecta.htdigest")
-	// authenticator := auth.NewDigestAuthenticator("/", secrets)
 
 	http.HandleFunc("/static", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Connect from", r.RemoteAddr, r.URL)
@@ -71,14 +70,24 @@ func httpVideo(li chan *bytes.Buffer) {
 }
 
 func startServer() {
-	log.Println("Starting to serve...")
 	err := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
 	}
+	log.Println("Serving...")
 }
 
 func main() {
+	auth_ := flag.Bool("a", false, "Enable authentication")
+	flag.Parse()
+
+	// var authenticator auth.DigestAuth
+	if *auth_ {
+		log.Println("Authentication enabled")
+		// secrets := auth.HtdigestFileProvider(HTTPS_DIGEST_FILE)
+		// authenticator := auth.NewDigestAuthenticator("/", secrets)
+	}
+
 	// First, open and setup camera
 	log.Println("Opening camera...")
 	cam, err := webcam.Open(WEBCAM_DEVICE)
