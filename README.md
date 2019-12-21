@@ -5,6 +5,10 @@
 - [x] HTTPS
 - [X] Authentication
 - [x] Blink led 
-- [ ] Camera
+- [x] Setup Camera
+- [x] Serve static image
+- [ ] Serve continuous flux
+- [ ] Cleanup
 - [ ] Configure Router
+- [ ] Stream camera via HTTP
 
