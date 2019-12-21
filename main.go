@@ -2,120 +2,106 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"strconv"
-	"time"
 
-	// "github.com/stianeikeland/go-rpio"
 	"log"
-	"os"
 
 	"github.com/blackjack/webcam"
 )
 
+const (
+	HTTPS_SERVER_PORT = 4443
+
+	WEBCAM_DEVICE        = "/dev/video0"
+	WEBCAM_PIXEL_FORMAT  = 0x56595559
+	WEBCAM_SIZE_WIDTH    = 1024
+	WEBCAM_SIZE_HEIGHT   = 768
+	WEBCAM_FRAME_TIMEOUT = 5
+
+	HTTP_SERVED_CLIENTS = 50
+)
+
 func httpImage(li chan *bytes.Buffer) {
 
-	fmt.Println("Starting authenticated web server...")
 	// secrets := auth.HtdigestFileProvider("projecta.htdigest")
 	// authenticator := auth.NewDigestAuthenticator("/", secrets)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("connect from", r.RemoteAddr, r.URL)
-
-		//remove stale image
-		// <-li
+	http.HandleFunc("/static", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Connect from", r.RemoteAddr, r.URL)
 
 		img := <-li
 
 		w.Header().Set("Content-Type", "image/jpeg")
-
 		if _, err := w.Write(img.Bytes()); err != nil {
 			log.Println(err)
 			return
 		}
 
 	})
-
-	log.Println("Starting to serve...")
-	err2 := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
-	if err2 != nil {
-		log.Fatal("ListenAndServerTLS", err2)
-	}
 }
 
 func httpVideo(li chan *bytes.Buffer) {
 	http.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("connect from", r.RemoteAddr, r.URL)
+		log.Println("Connect from", r.RemoteAddr, r.URL)
 
-		//remove stale image
-		<-li
 		const boundary = `frame`
 		w.Header().Set("Content-Type", `multipart/x-mixed-replace;boundary=`+boundary)
 		multipartWriter := multipart.NewWriter(w)
 		multipartWriter.SetBoundary(boundary)
 		for {
 			img := <-li
-			image := img.Bytes()
 			iw, err := multipartWriter.CreatePart(textproto.MIMEHeader{
-				"Content-type":   []string{"image/jpeg"},
-				"Content-length": []string{strconv.Itoa(len(image))},
+				"Content-type": []string{"image/jpeg"},
 			})
 			if err != nil {
 				log.Println(err)
 				return
 			}
-			_, err = iw.Write(image)
+			_, err = iw.Write(img.Bytes())
 			if err != nil {
 				log.Println(err)
 				return
 			}
 		}
 	})
+}
 
+func startServer() {
 	log.Println("Starting to serve...")
-	err2 := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
-	if err2 != nil {
-		log.Fatal("ListenAndServerTLS", err2)
+	err := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
+	if err != nil {
+		log.Fatal("ListenAndServerTLS", err)
 	}
 }
 
 func main() {
-	camera := "/dev/video0"
-	fmt.Println("Opening camera")
-
-	cam, err := webcam.Open(camera)
+	// First, open and setup camera
+	log.Println("Opening camera...")
+	cam, err := webcam.Open(WEBCAM_DEVICE)
 	if err != nil {
 		panic(err.Error())
 	}
 	defer cam.Close()
+	log.Println("Camera successfully opened")
 
-	format := webcam.PixelFormat(0x56595559)
-	fmt.Fprintln(os.Stderr, "format", format)
-
-	// select frame size
-	frames := cam.GetSupportedFrameSizes(format)
-	for _, f := range frames {
-		fmt.Fprintln(os.Stderr, f.GetString())
-	}
-
-	f, w, h, err := cam.SetImageFormat(format, 1024, 768)
+	format := webcam.PixelFormat(WEBCAM_PIXEL_FORMAT)
+	f, w, h, err := cam.SetImageFormat(format, WEBCAM_SIZE_WIDTH, WEBCAM_SIZE_HEIGHT)
 	if err != nil {
 		log.Println("SetImageFormat return error", err)
 		return
 	}
 
-	// start streaming
 	err = cam.StartStreaming()
 	if err != nil {
 		log.Println("err:", err)
 		return
 	}
 
+	// Then, setup HTTP server and encoding goroutine
 	var (
 		li   chan *bytes.Buffer = make(chan *bytes.Buffer)
 		fi   chan []byte        = make(chan []byte)
@@ -123,26 +109,14 @@ func main() {
 	)
 
 	go encodeToImage(cam, back, fi, li, w, h, f)
-	// go httpImage(li)
+	go httpImage(li)
 	go httpVideo(li)
+	go startServer()
 
-	timeout := uint32(5) //5 seconds
-	// start := time.Now()
-	var fr time.Duration
-
+	// Finally, read frames from the camera and write to fi for encoding
 	for {
-		err = cam.WaitForFrame(timeout)
+		err = cam.WaitForFrame(WEBCAM_FRAME_TIMEOUT)
 		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		switch err.(type) {
-		case nil:
-		case *webcam.Timeout:
-			log.Println(err)
-			continue
-		default:
 			log.Println(err)
 			return
 		}
@@ -153,9 +127,6 @@ func main() {
 			return
 		}
 		if len(frame) != 0 {
-
-			// print framerate info every 10 seconds
-			fr++
 			select {
 			case fi <- frame:
 				<-back
@@ -167,13 +138,11 @@ func main() {
 
 func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li chan *bytes.Buffer, w, h uint32, format webcam.PixelFormat) {
 
-	var (
-		frame []byte
-		img   image.Image
-	)
+	var frame []byte
 	for {
+		// Block until a frame is available from the camera
 		bframe := <-fi
-		// copy frame
+
 		if len(frame) < len(bframe) {
 			frame = make([]byte, len(bframe))
 		}
@@ -189,20 +158,17 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 			yuyv.Cr[i] = frame[ii+3]
 
 		}
-		img = yuyv
 
-		//convert to jpeg
 		buf := &bytes.Buffer{}
-		if err := jpeg.Encode(buf, img, nil); err != nil {
+		if err := jpeg.Encode(buf, yuyv, nil); err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		const N = 50
-		// broadcast image up to N ready clients
+		// Broadcast image up to HTTP_SERVED_CLIENTS ready clients
 		nn := 0
 	FOR:
-		for ; nn < N; nn++ {
+		for ; nn < HTTP_SERVED_CLIENTS; nn++ {
 			select {
 			case li <- buf:
 			default:
@@ -212,6 +178,5 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 		if nn == 0 {
 			li <- buf
 		}
-
 	}
 }
