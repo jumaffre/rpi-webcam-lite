@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"strconv"
 	"time"
 
 	// "github.com/stianeikeland/go-rpio"
@@ -15,35 +18,7 @@ import (
 	"github.com/blackjack/webcam"
 )
 
-// func HelloServer(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-// 	log.Println("connect from", r.RemoteAddr, r.URL)
-
-// 	//remove stale image
-// 	<-li
-
-// 	img := <-li
-
-// 	w.Header().Set("Content-Type", "image/jpeg")
-
-// 	if _, err := w.Write(img.Bytes()); err != nil {
-// 		log.Println(err)
-// 		return
-// 	}
-
-// }
-
 func httpImage(li chan *bytes.Buffer) {
-
-	// w.Header().Set("Content-Type", "image/jpeg")
-
-	// path := "./image.png"
-	// img, err := os.Open(path)
-	// if err != nil {
-	// 	log.Fatal(err) // perhaps handle this nicer
-	// }
-	// defer img.Close()
-
-	// io.Copy(w, img)
 
 	fmt.Println("Starting authenticated web server...")
 	// secrets := auth.HtdigestFileProvider("projecta.htdigest")
@@ -64,6 +39,42 @@ func httpImage(li chan *bytes.Buffer) {
 			return
 		}
 
+	})
+
+	log.Println("Starting to serve...")
+	err2 := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
+	if err2 != nil {
+		log.Fatal("ListenAndServerTLS", err2)
+	}
+}
+
+func httpVideo(li chan *bytes.Buffer) {
+	http.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("connect from", r.RemoteAddr, r.URL)
+
+		//remove stale image
+		<-li
+		const boundary = `frame`
+		w.Header().Set("Content-Type", `multipart/x-mixed-replace;boundary=`+boundary)
+		multipartWriter := multipart.NewWriter(w)
+		multipartWriter.SetBoundary(boundary)
+		for {
+			img := <-li
+			image := img.Bytes()
+			iw, err := multipartWriter.CreatePart(textproto.MIMEHeader{
+				"Content-type":   []string{"image/jpeg"},
+				"Content-length": []string{strconv.Itoa(len(image))},
+			})
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			_, err = iw.Write(image)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}
 	})
 
 	log.Println("Starting to serve...")
@@ -112,7 +123,8 @@ func main() {
 	)
 
 	go encodeToImage(cam, back, fi, li, w, h, f)
-	go httpImage(li)
+	// go httpImage(li)
+	go httpVideo(li)
 
 	timeout := uint32(5) //5 seconds
 	// start := time.Now()
