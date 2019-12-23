@@ -165,7 +165,6 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 			yuyv.Y[i*2+1] = frame[ii+2]
 			yuyv.Cb[i] = frame[ii+1]
 			yuyv.Cr[i] = frame[ii+3]
-
 		}
 
 		buf := &bytes.Buffer{}
@@ -173,6 +172,11 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 			log.Fatal(err)
 			return
 		}
+
+		// if _, err := jpeg.Decode(buf); err != nil {
+		// 	log.Fatal(err)
+		// 	return
+		// }
 
 		// Broadcast image up to HTTP_SERVED_CLIENTS ready clients
 		nn := 0

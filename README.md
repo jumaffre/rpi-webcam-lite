@@ -10,9 +10,11 @@ Real-Time Camera Raspberry Pi HTTP Server.
 - [x] Setup Camera
 - [x] Serve static image
 - [x] Serve continuous flux
+- [x] Configure Router
+- [x] Dockerize
 - [ ] Cleanup
 - [ ] Include TimeStamp
-- [ ] Configure Router
 - [ ] Nice GUI
+- [ ] Record Video
 
 

@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  projecta:
+    ports:
+      - "4443:4443"
+    devices:
+      - "/dev/video0:/dev/video0"
+    image: "projecta"
+    restart: always
