@@ -1,6 +1,6 @@
 FROM golang:latest
 
-LABEL maintainer="Julien Maffre <jumaffre@microsoft.com>"
+LABEL maintainer="Julien Maffre <maffre.jul@gmail.com>"
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o main . 
+RUN go build -o projecta . 
 
 EXPOSE 4443
 

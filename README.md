@@ -15,6 +15,7 @@ Real-Time Camera Raspberry Pi HTTP Server.
 - [ ] Cleanup
 - [ ] Include TimeStamp
 - [ ] Nice GUI
-- [ ] Record Video
+- [ ] Motion detection
+- [ ] K8s resiliency
 
 
