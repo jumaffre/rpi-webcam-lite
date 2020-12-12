@@ -14,8 +14,10 @@ Real-Time Camera Raspberry Pi HTTP Server.
 - [x] Dockerize
 - [ ] Cleanup
 - [x] Include TimeStamp
-- [ ] Nice GUI
+- [ ] Nice UI
 - [ ] Motion detection
 - [ ] K8s resiliency
+- [ ] WebRTC frames
+- [ ] JWT
 
 

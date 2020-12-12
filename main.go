@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"flag"
+	"html/template"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"strings"
 
 	"log"
 
@@ -25,10 +27,52 @@ const (
 	HTTP_SERVED_CLIENTS = 50
 )
 
+type IndexVariables struct {
+	WelcomeMessage string
+	CameraBase64   string
+}
+
+func httpIndex() {
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		vars := IndexVariables{WelcomeMessage: "Hello World"}
+		t, err := template.ParseFiles("html/index.html")
+		if err != nil {
+			log.Println(err)
+		}
+		t.Execute(w, vars)
+	})
+}
+
 func httpImage(li chan *bytes.Buffer) {
 
 	http.HandleFunc("/static", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Connect from", r.RemoteAddr, r.URL)
+
+		authzHeader := r.Header.Get("Authorization")
+		log.Println(authzHeader)
+		authzFields := strings.Split(authzHeader, "Bearer ")
+		jwt := authzFields[1]
+
+		_, err := ValidateGoogleJWT(jwt)
+		if err != nil {
+			log.Println("JWT fail")
+			return
+		}
+
+		log.Println("JWT success")
+
+		// log.Println("bearer:", bearer)
+		// log.Println("jwt:", jwt)
+
+		// validEmail := "maffre.jul@gmail.com"
+		// v := googleAuthIDTokenVerifier.Verifier{}
+		// err := v.VerifyIDToken(jwt, []string{validEmail})
+		// if err == nil {
+		// 	log.Println("JWT verification successful!")
+		// } else {
+		// 	log.Println("JWT verification failed!")
+		// }
 
 		img := <-li
 
@@ -68,6 +112,7 @@ func httpVideo(li chan *bytes.Buffer) {
 }
 
 func startServer() {
+	log.Println("Starting server on port 4443")
 	err := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
@@ -118,6 +163,7 @@ func main() {
 	go encodeToImage(cam, back, fi, li, w, h)
 	go httpImage(li)
 	go httpVideo(li)
+	go httpIndex()
 	go startServer()
 
 	// Finally, read frames from the camera and write to fi for encoding
