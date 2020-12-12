@@ -33,7 +33,6 @@ type IndexVariables struct {
 }
 
 func httpIndex() {
-
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		vars := IndexVariables{WelcomeMessage: "Hello World"}
 		t, err := template.ParseFiles("html/index.html")
@@ -47,32 +46,30 @@ func httpIndex() {
 func httpImage(li chan *bytes.Buffer) {
 
 	http.HandleFunc("/static", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Connect from", r.RemoteAddr, r.URL)
+		log.Println("Connection from", r.RemoteAddr, r.URL)
 
 		authzHeader := r.Header.Get("Authorization")
-		log.Println(authzHeader)
+		if authzHeader == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Authorization header missing"))
+			return
+		}
+
 		authzFields := strings.Split(authzHeader, "Bearer ")
+		if len(authzFields) < 2 {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Bearer token missing"))
+			return
+		}
 		jwt := authzFields[1]
 
 		_, err := ValidateGoogleJWT(jwt)
 		if err != nil {
 			log.Println("JWT fail")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("User is not a valid Google user"))
 			return
 		}
-
-		log.Println("JWT success")
-
-		// log.Println("bearer:", bearer)
-		// log.Println("jwt:", jwt)
-
-		// validEmail := "maffre.jul@gmail.com"
-		// v := googleAuthIDTokenVerifier.Verifier{}
-		// err := v.VerifyIDToken(jwt, []string{validEmail})
-		// if err == nil {
-		// 	log.Println("JWT verification successful!")
-		// } else {
-		// 	log.Println("JWT verification failed!")
-		// }
 
 		img := <-li
 

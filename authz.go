@@ -23,7 +23,7 @@ type GoogleClaims struct {
 	jwt.StandardClaims
 }
 
-func getGoogleSigningPubKey(keyID string) (string, error) {
+func getGooglePublicKey(keyID string) (string, error) {
 	resp, err := http.Get(googleApisCertsURL)
 	if err != nil {
 		return "", err
@@ -55,14 +55,14 @@ func ValidateGoogleJWT(tokenString string) (GoogleClaims, error) {
 		tokenString,
 		&claimsStruct,
 		func(token *jwt.Token) (interface{}, error) {
-			pem, err := getGoogleSigningPubKey(token.Header["kid"])
+			pem, err := getGooglePublicKey(fmt.Sprintf("%s", token.Header["kid"]))
 			if err != nil {
 				return nil, err
 			}
 			log.Println(pem)
 			key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(pem))
 			if err != nil {
-				log.Println("Error parsing public key from certificate")
+				log.Println("Error parsing public key")
 				return nil, err
 			}
 			return key, nil
