@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"time"
+	"strings"
 
 	"log"
 
@@ -23,20 +24,32 @@ type GoogleClaims struct {
 	jwt.StandardClaims
 }
 
+func extractTokenFromHeaders(header *http.Header) (string, error) {
+	authzHeader := header.Get("Authorization")
+	if authzHeader == "" {
+		return "", errors.New("Authorization header missing")
+	}
+
+	authzFields := strings.Split(authzHeader, "Bearer ")
+	if len(authzFields) < 2 {
+		return "", errors.New("Bearer token missing")
+	}
+	return authzFields[1], nil
+}
+
 func getGooglePublicKey(keyID string) (string, error) {
 	resp, err := http.Get(googleApisCertsURL)
 	if err != nil {
 		return "", err
 	}
-	log.Println(resp.Body)
-	dat, err := ioutil.ReadAll(resp.Body)
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("readAll failed")
 		return "", err
 	}
 
 	myResp := map[string]string{}
-	err = json.Unmarshal(dat, &myResp)
+	err = json.Unmarshal(data, &myResp)
 	if err != nil {
 		log.Println("Unmarshal failed")
 		return "", err
@@ -49,7 +62,12 @@ func getGooglePublicKey(keyID string) (string, error) {
 	return key, nil
 }
 
-func ValidateGoogleJWT(tokenString string) (GoogleClaims, error) {
+func ValidateGoogleJWT(header *http.Header) (GoogleClaims, error) {
+	tokenString, err := extractTokenFromHeaders(header)
+	if err != nil {
+		return GoogleClaims{}, err
+	}
+
 	claimsStruct := GoogleClaims{}
 	token, err := jwt.ParseWithClaims(
 		tokenString,
@@ -59,7 +77,6 @@ func ValidateGoogleJWT(tokenString string) (GoogleClaims, error) {
 			if err != nil {
 				return nil, err
 			}
-			log.Println(pem)
 			key, err := jwt.ParseRSAPublicKeyFromPEM([]byte(pem))
 			if err != nil {
 				log.Println("Error parsing public key")
@@ -82,9 +99,9 @@ func ValidateGoogleJWT(tokenString string) (GoogleClaims, error) {
 		return GoogleClaims{}, errors.New("iss is invalid")
 	}
 
-	// if claims.Audience != "YOUR_CLIENT_ID_HERE" {
-	// 	return GoogleClaims{}, errors.New("aud is invalid")
-	// }
+	if claims.Email != "maffre.jul@gmail.com" {
+		return GoogleClaims{}, errors.New("user is invalid")
+	}
 
 	if claims.ExpiresAt < time.Now().UTC().Unix() {
 		return GoogleClaims{}, errors.New("JWT is expired")

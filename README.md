@@ -18,6 +18,8 @@ Real-Time Camera Raspberry Pi HTTP Server.
 - [ ] Motion detection
 - [ ] K8s resiliency
 - [ ] WebRTC frames
-- [ ] JWT
+- [x] JWT
+- [x] JWT for stream too
+- [ ] Take and record snapshots
 
 
