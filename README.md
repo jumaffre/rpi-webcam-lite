@@ -12,13 +12,12 @@ Real-Time Camera Raspberry Pi HTTP Server.
 - [x] Serve continuous flux
 - [x] Configure Router
 - [x] Dockerize
-- [ ] Cleanup
 - [x] Include TimeStamp
-- [ ] Nice UI
+- [x] Nice UI
+- [x] JWT
+- [ ] CI
 - [ ] Motion detection
 - [ ] WebRTC frames
-- [x] JWT
-- [x] JWT for stream too
 - [ ] Take and record snapshots, per user
 - [ ] Server setup
 
