@@ -16,10 +16,10 @@ Real-Time Camera Raspberry Pi HTTP Server.
 - [x] Include TimeStamp
 - [ ] Nice UI
 - [ ] Motion detection
-- [ ] K8s resiliency
 - [ ] WebRTC frames
 - [x] JWT
 - [x] JWT for stream too
-- [ ] Take and record snapshots
+- [ ] Take and record snapshots, per user
+- [ ] Server setup
 
 

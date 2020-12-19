@@ -30,6 +30,7 @@ type IndexVariables struct {
 }
 
 func httpIndex() {
+	// Index
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		vars := IndexVariables{}
 		t, err := template.ParseFiles("html/index.html")
@@ -39,9 +40,13 @@ func httpIndex() {
 		t.Execute(w, vars)
 	})
 
+	// Favicon
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "gmail.ico")
 	})
+
+	// Static director (css)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 }
 
 func httpImage(li chan *bytes.Buffer) {
