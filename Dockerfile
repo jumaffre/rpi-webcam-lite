@@ -12,6 +12,9 @@ COPY . .
 
 RUN go build -o projecta . 
 
-EXPOSE 4443
+EXPOSE 4443 
+
+# For Let's Encrypt
+EXPOSE 4444
 
 CMD ["./projecta"]

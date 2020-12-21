@@ -3,6 +3,7 @@ services:
   projecta:
     ports:
       - "4443:4443"
+      - "4444:4444"
     devices:
       - "/dev/video0:/dev/video0"
     image: "projecta"

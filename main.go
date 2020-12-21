@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"crypto/tls"
-
+	"flag"
 	"log"
 	"strconv"
 
@@ -18,13 +18,19 @@ import (
 const (
 	HTTPS_SERVER_PORT = 4443
 
-	WEBCAM_DEVICE        = "/dev/video0"
+	WEBCAM_DEVICE_DEFAULT= "/dev/video0"
 	WEBCAM_PIXEL_FORMAT  = 0x56595559
 	WEBCAM_SIZE_WIDTH    = 1024
 	WEBCAM_SIZE_HEIGHT   = 768
 	WEBCAM_FRAME_TIMEOUT = 5
 
 	HTTP_SERVED_CLIENTS = 50
+)
+
+var (
+	devMode bool
+	domain string
+	videoDevice string
 )
 
 type IndexVariables struct {
@@ -48,7 +54,7 @@ func httpIndex(mux *http.ServeMux) {
 	})
 
 	// Static director (css)
-	mux.Handle("/_static/", http.StripPrefix("/_static/", http.FileServer(http.Dir("static"))))
+	mux.Handle("/_static/", http.StripPrefix("/_static/", http.FileServer(http.Dir("_static"))))
 }
 
 func httpStream(mux* http.ServeMux, li chan *bytes.Buffer) {
@@ -149,9 +155,17 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 }
 
 func main() {
-	// First, open and setup camera
+	flag.BoolVar(&devMode, "dev", false, "Development mode")
+	flag.StringVar(&domain, "domain", "", "Domain name for TLS certs")
+	flag.StringVar(&videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Video device, e.g. /dev/video0")
+	flag.Parse()
+	  
+	if devMode {
+		log.Println("Warning: Server started in development Mode")
+	}
+
 	log.Println("Opening camera...")
-	cam, err := webcam.Open(WEBCAM_DEVICE)
+	cam, err := webcam.Open(videoDevice)
 	if err != nil {
 		panic(err.Error())
 	}
