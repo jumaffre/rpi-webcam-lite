@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"html/template"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -16,7 +15,8 @@ import (
 )
 
 const (
-	HTTPS_SERVER_PORT = 4443
+	HTTPS_SERVER_PORT_DEFAULT = 4443
+	HTTP_SERVED_CLIENTS = 50
 
 	WEBCAM_DEVICE_DEFAULT= "/dev/video0"
 	WEBCAM_PIXEL_FORMAT  = 0x56595559
@@ -24,36 +24,33 @@ const (
 	WEBCAM_SIZE_HEIGHT   = 768
 	WEBCAM_FRAME_TIMEOUT = 5
 
-	HTTP_SERVED_CLIENTS = 50
+	CERTIFICATES_FOLDER = "certs/"
 )
 
-var (
+type settings struct {
 	devMode bool
+	port int
 	domain string
 	videoDevice string
+}
+
+var (
+	s settings
 )
 
-type IndexVariables struct {
-	CameraBase64   string
+func redirectHTTP(w http.ResponseWriter, r *http.Request) {
+    http.Redirect(w, r, "https://" + r.Host + r.RequestURI, http.StatusMovedPermanently)
 }
 
 func httpIndex(mux *http.ServeMux) {
-	// Index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		vars := IndexVariables{}
-		t, err := template.ParseFiles("html/index.html")
-		if err != nil {
-			log.Println(err)
-		}
-		t.Execute(w, vars)
+		http.ServeFile(w, r, "html/index.html")
 	})
 
-	// Favicon
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "gmail.ico")
+		http.ServeFile(w, r, "fav.ico")
 	})
 
-	// Static director (css)
 	mux.Handle("/_static/", http.StripPrefix("/_static/", http.FileServer(http.Dir("_static"))))
 }
 
@@ -94,29 +91,42 @@ func httpStream(mux* http.ServeMux, li chan *bytes.Buffer) {
 }
 
 func startServer(mux *http.ServeMux) {
-	log.Println("Starting server on port 4443")
-	certManager := autocert.Manager{
-		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("sanctoir.ddns.net"),
-		Cache:      autocert.DirCache("certs"),
-	  }
+	log.Println("Starting server at ", s.domain, " on port ", s.port)
+	
+	// http to https redirection
+	go http.ListenAndServe(":" + strconv.Itoa(s.port), http.HandlerFunc(redirectHTTP))
 
-	go http.ListenAndServe(":4444", certManager.HTTPHandler(nil))
-	log.Println("Started http handler on port 4444")
-
-	server := &http.Server{
-		Addr:    ":4443",
-		Handler: mux,
-		TLSConfig: &tls.Config{
-			GetCertificate: certManager.GetCertificate,
-		},
+	var err error
+	if !s.devMode {
+		certManager := autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(s.domain),
+			Cache:      autocert.DirCache(CERTIFICATES_FOLDER),
+		}
+		letsEncryptPort := s.port + 1
+		go http.ListenAndServe(":" + strconv.Itoa(letsEncryptPort), certManager.HTTPHandler(nil))
+		log.Println("Started Let's Encrypt on port ", letsEncryptPort)
+		
+		server := &http.Server{
+			Addr:    ":" + strconv.Itoa(s.port),
+			Handler: mux,
+			TLSConfig: &tls.Config{
+				GetCertificate: certManager.GetCertificate,
+			},
+		}
+		err = server.ListenAndServeTLS("", "")
+	} else {
+		server := &http.Server{
+			Addr:    ":" + strconv.Itoa(s.port),
+			Handler: mux,
+			TLSConfig: 
+			},
+		}
+		err = http.ListenAndServeTLS(CERTIFICATES_FOLDER + "certificate.pem", CERTIFICATES_FOLDER + "key.pem", nil)
 	}
-
-	err := server.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
 	}
-	log.Println("Serving...")
 }
 
 func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li chan *bytes.Buffer, w uint32, h uint32) {
@@ -155,17 +165,18 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 }
 
 func main() {
-	flag.BoolVar(&devMode, "dev", false, "Development mode")
-	flag.StringVar(&domain, "domain", "", "Domain name for TLS certs")
-	flag.StringVar(&videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Video device, e.g. /dev/video0")
+	flag.BoolVar(&s.devMode, "dev", false, "Development mode")
+	flag.IntVar(&s.port, "port", HTTPS_SERVER_PORT_DEFAULT, "Port to listen on")
+	flag.StringVar(&s.domain, "domain", "", "Domain name for TLS certs")
+	flag.StringVar(&s.videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Video device, e.g. /dev/video0")
 	flag.Parse()
 	  
-	if devMode {
+	if s.devMode {
 		log.Println("Warning: Server started in development Mode")
 	}
 
 	log.Println("Opening camera...")
-	cam, err := webcam.Open(videoDevice)
+	cam, err := webcam.Open(s.videoDevice)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -185,7 +196,6 @@ func main() {
 		return
 	}
 
-	// Then, setup HTTP server and encoding goroutine
 	var (
 		li   chan *bytes.Buffer = make(chan *bytes.Buffer)
 		fi   chan []byte        = make(chan []byte)
@@ -197,14 +207,6 @@ func main() {
 	mux := http.NewServeMux()
 	httpIndex(mux)
 	go httpStream(mux, li)
-
-	// // Let's encrypt setup
-	// certManager := autocert.Manager{
-    //     Prompt:     autocert.AcceptTOS,
-    //     HostPolicy: autocert.HostWhitelist("sanctoir.ddns.net"), // TODO: This should be a CLI	
-    //     Cache:      autocert.DirCache("certs"),            //Folder for storing certificates
-	// }
-	
 	go startServer(mux)
 
 	// Finally, read frames from the camera and write to fi for encoding
