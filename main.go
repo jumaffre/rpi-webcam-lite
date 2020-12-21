@@ -32,6 +32,7 @@ type settings struct {
 	port int
 	domain string
 	videoDevice string
+	accounts string
 }
 
 var (
@@ -58,7 +59,7 @@ func httpStream(mux* http.ServeMux, li chan *bytes.Buffer) {
 	mux.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Connection from", r.RemoteAddr, r.URL)
 
-		_, err := ValidateGoogleJWT(&r.Header)
+		_, err := ValidateGoogleJWT(&r.Header, s.accounts)
 		if err != nil {
 			log.Println("JWT fail")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -119,10 +120,8 @@ func startServer(mux *http.ServeMux) {
 		server := &http.Server{
 			Addr:    ":" + strconv.Itoa(s.port),
 			Handler: mux,
-			TLSConfig: 
-			},
 		}
-		err = http.ListenAndServeTLS(CERTIFICATES_FOLDER + "certificate.pem", CERTIFICATES_FOLDER + "key.pem", nil)
+		err = server.ListenAndServeTLS(CERTIFICATES_FOLDER + "certificate.pem", CERTIFICATES_FOLDER + "key.pem")
 	}
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
@@ -169,7 +168,13 @@ func main() {
 	flag.IntVar(&s.port, "port", HTTPS_SERVER_PORT_DEFAULT, "Port to listen on")
 	flag.StringVar(&s.domain, "domain", "", "Domain name for TLS certs")
 	flag.StringVar(&s.videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Video device, e.g. /dev/video0")
+	flag.StringVar(&s.accounts, "accounts", "", "Path to accounts file")
 	flag.Parse()
+
+	if s.accounts == "" {
+		log.Println("Accounts file should be specified via --acounts argument")
+		return
+	}
 	  
 	if s.devMode {
 		log.Println("Warning: Server started in development Mode")

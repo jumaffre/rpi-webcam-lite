@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 	"strings"
+	"bufio"
+	"os"
 
 	"log"
 
@@ -62,7 +64,24 @@ func getGooglePublicKey(keyID string) (string, error) {
 	return key, nil
 }
 
-func ValidateGoogleJWT(header *http.Header) (GoogleClaims, error) {
+func validateUserEmail(email string, accounts string) bool {
+	file, err := os.Open(accounts)
+    if err != nil {
+        log.Fatal(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+    for scanner.Scan() {
+		if email == scanner.Text() {
+			return true
+		}
+	}
+	
+	return false
+}
+
+func ValidateGoogleJWT(header *http.Header, accounts string) (GoogleClaims, error) {
 	tokenString, err := extractTokenFromHeaders(header)
 	if err != nil {
 		return GoogleClaims{}, err
@@ -98,8 +117,8 @@ func ValidateGoogleJWT(header *http.Header) (GoogleClaims, error) {
 	if claims.Issuer != "accounts.google.com" && claims.Issuer != "https://accounts.google.com" {
 		return GoogleClaims{}, errors.New("iss is invalid")
 	}
-
-	if claims.Email != "maffre.jul@gmail.com" {
+	
+	if !validateUserEmail(claims.Email, accounts) {
 		return GoogleClaims{}, errors.New("user is invalid")
 	}
 

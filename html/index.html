@@ -21,7 +21,6 @@
   <script>
     window.addEventListener("DOMContentLoaded", () => {
       if (localStorage.getItem("isStreaming") == null) {
-        console.log("Haha")
         localStorage.setItem("isStreaming", true);
       }
       document.getElementById("streamSwitch").checked = JSON.parse(localStorage.getItem("isStreaming"));
