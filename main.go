@@ -6,11 +6,13 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"crypto/tls"
 
 	"log"
 	"strconv"
 
 	"github.com/blackjack/webcam"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 const (
@@ -29,9 +31,9 @@ type IndexVariables struct {
 	CameraBase64   string
 }
 
-func httpIndex() {
+func httpIndex(mux *http.ServeMux) {
 	// Index
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		vars := IndexVariables{}
 		t, err := template.ParseFiles("html/index.html")
 		if err != nil {
@@ -41,39 +43,16 @@ func httpIndex() {
 	})
 
 	// Favicon
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "gmail.ico")
 	})
 
 	// Static director (css)
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	mux.Handle("/_static/", http.StripPrefix("/_static/", http.FileServer(http.Dir("static"))))
 }
 
-func httpImage(li chan *bytes.Buffer) {
-
-	http.HandleFunc("/static", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Connection from", r.RemoteAddr, r.URL)
-
-		_, err := ValidateGoogleJWT(&r.Header)
-		if err != nil {
-			log.Println("JWT fail")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("User verification failed: " + err.Error()))
-			return
-		}
-
-		img := <-li
-
-		w.Header().Set("Content-Type", "image/jpeg")
-		if _, err := w.Write(img.Bytes()); err != nil {
-			log.Println(err)
-			return
-		}
-	})
-}
-
-func httpVideo(li chan *bytes.Buffer) {
-	http.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
+func httpStream(mux* http.ServeMux, li chan *bytes.Buffer) {
+	mux.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Connection from", r.RemoteAddr, r.URL)
 
 		_, err := ValidateGoogleJWT(&r.Header)
@@ -108,9 +87,26 @@ func httpVideo(li chan *bytes.Buffer) {
 	})
 }
 
-func startServer() {
+func startServer(mux *http.ServeMux) {
 	log.Println("Starting server on port 4443")
-	err := http.ListenAndServeTLS(":4443", "server.crt", "server.key", nil)
+	certManager := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		HostPolicy: autocert.HostWhitelist("sanctoir.ddns.net"),
+		Cache:      autocert.DirCache("certs"),
+	  }
+
+	go http.ListenAndServe(":4444", certManager.HTTPHandler(nil))
+	log.Println("Started http handler on port 4444")
+
+	server := &http.Server{
+		Addr:    ":4443",
+		Handler: mux,
+		TLSConfig: &tls.Config{
+			GetCertificate: certManager.GetCertificate,
+		},
+	}
+
+	err := server.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
 	}
@@ -183,11 +179,19 @@ func main() {
 	)
 
 	go encodeToImage(cam, back, fi, li, w, h)
-	go httpImage(li)
-	go httpVideo(li)
+
+	mux := http.NewServeMux()
+	httpIndex(mux)
+	go httpStream(mux, li)
+
+	// // Let's encrypt setup
+	// certManager := autocert.Manager{
+    //     Prompt:     autocert.AcceptTOS,
+    //     HostPolicy: autocert.HostWhitelist("sanctoir.ddns.net"), // TODO: This should be a CLI	
+    //     Cache:      autocert.DirCache("certs"),            //Folder for storing certificates
+	// }
 	
-	httpIndex()
-	go startServer()
+	go startServer(mux)
 
 	// Finally, read frames from the camera and write to fi for encoding
 	for {

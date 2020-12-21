@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/_static/style.css" />
   </head>
 
   <meta
@@ -20,11 +20,11 @@
   <title>Sanctoir</title>
   <script>
     window.addEventListener("DOMContentLoaded", () => {
-      let isStreaming = localStorage.getItem("isStreaming");
-      if (isStreaming == null) {
+      if (localStorage.getItem("isStreaming") == null) {
+        console.log("Haha")
         localStorage.setItem("isStreaming", true);
       }
-      document.getElementById("streamSwitch").checked = JSON.parse(isStreaming);
+      document.getElementById("streamSwitch").checked = JSON.parse(localStorage.getItem("isStreaming"));
     });
 
     function streamClick() {
