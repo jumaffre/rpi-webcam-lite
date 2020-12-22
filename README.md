@@ -1,24 +1,20 @@
 # Project A
 
-Real-Time Camera Raspberry Pi HTTP Server.
+Secure real-time camera stream for Raspberry Pi, in the browser. 
+
+Features:
+- Simple setup with Docker
+- Secure, HTTPS with Let's Encrypt certificates, OAuth authentication (Google only for now)
+
+
+## Install
+
+
+
 
 ## TODO
 
-- [x] HTTPS
-- [X] Authentication
-- [x] Blink led 
-- [x] Setup Camera
-- [x] Serve static image
-- [x] Serve continuous flux
-- [x] Configure Router
-- [x] Dockerize
-- [x] Include TimeStamp
-- [x] Nice UI
-- [x] JWT
-- [ ] Server setup
 - [ ] OAuth ID is not hard-coded
-- [ ] Open Source: cleanup, squash, naming, `README.md`
-- [ ] CA with Let's Encrypt
 - [ ] CI
 - [ ] Motion detection
 - [ ] WebRTC frames

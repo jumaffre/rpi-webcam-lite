@@ -1,15 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
-	"strings"
-	"bufio"
 	"os"
+	"strings"
+	"time"
 
 	"log"
 
@@ -66,18 +66,18 @@ func getGooglePublicKey(keyID string) (string, error) {
 
 func validateUserEmail(email string, accounts string) bool {
 	file, err := os.Open(accounts)
-    if err != nil {
-        log.Fatal(err)
+	if err != nil {
+		log.Fatal(err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
+	for scanner.Scan() {
 		if email == scanner.Text() {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -117,7 +117,7 @@ func ValidateGoogleJWT(header *http.Header, accounts string) (GoogleClaims, erro
 	if claims.Issuer != "accounts.google.com" && claims.Issuer != "https://accounts.google.com" {
 		return GoogleClaims{}, errors.New("iss is invalid")
 	}
-	
+
 	if !validateUserEmail(claims.Email, accounts) {
 		return GoogleClaims{}, errors.New("user is invalid")
 	}

@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
+	"flag"
+	"html/template"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"crypto/tls"
-	"flag"
-	"log"
+	"os"
 	"strconv"
 
 	"github.com/blackjack/webcam"
@@ -16,23 +18,26 @@ import (
 
 const (
 	HTTPS_SERVER_PORT_DEFAULT = 4443
-	HTTP_SERVED_CLIENTS = 50
+	HTTP_SERVED_CLIENTS       = 50
 
-	WEBCAM_DEVICE_DEFAULT= "/dev/video0"
-	WEBCAM_PIXEL_FORMAT  = 0x56595559
-	WEBCAM_SIZE_WIDTH    = 1024
-	WEBCAM_SIZE_HEIGHT   = 768
-	WEBCAM_FRAME_TIMEOUT = 5
+	WEBCAM_DEVICE_DEFAULT = "/dev/video0"
+	WEBCAM_PIXEL_FORMAT   = 0x56595559
+	WEBCAM_SIZE_WIDTH     = 1024
+	WEBCAM_SIZE_HEIGHT    = 768
+	WEBCAM_FRAME_TIMEOUT  = 5
 
-	CERTIFICATES_FOLDER = "certs/"
+	CERTIFICATES_FOLDER    = "certs/"
+	ACCOUNTS_FILE_DEFAULT  = "accounts"
+	OAUTH_CLIENT_ID_ENVVAR = "OAUTH_CLIENT_ID"
 )
 
 type settings struct {
-	devMode bool
-	port int
-	domain string
+	devMode     bool
+	port        int
+	domain      string
 	videoDevice string
-	accounts string
+	accounts    string
+	insecure    bool
 }
 
 var (
@@ -40,42 +45,49 @@ var (
 )
 
 func redirectHTTP(w http.ResponseWriter, r *http.Request) {
-    http.Redirect(w, r, "https://" + r.Host + r.RequestURI, http.StatusMovedPermanently)
+	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
 }
 
-func httpIndex(mux *http.ServeMux) {
+func httpIndex(mux *http.ServeMux, oauthClientID *string) {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "html/index.html")
+
+		t, err := template.ParseFiles("html/index.html")
+		if err != nil {
+			log.Println(err)
+		}
+		t.Execute(w, oauthClientID)
 	})
 
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "fav.ico")
+		http.ServeFile(w, r, "/_static/fav.ico")
 	})
 
 	mux.Handle("/_static/", http.StripPrefix("/_static/", http.FileServer(http.Dir("_static"))))
 }
 
-func httpStream(mux* http.ServeMux, li chan *bytes.Buffer) {
+func httpStream(mux *http.ServeMux, li chan *bytes.Buffer, disableAuth bool) {
 	mux.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Connection from", r.RemoteAddr, r.URL)
 
-		_, err := ValidateGoogleJWT(&r.Header, s.accounts)
-		if err != nil {
-			log.Println("JWT fail")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("User verification failed: " + err.Error()))
-			return
+		if !disableAuth {
+			_, err := ValidateGoogleJWT(&r.Header, s.accounts)
+			if err != nil {
+				log.Println("JWT fail")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte("User verification failed: " + err.Error()))
+				return
+			}
 		}
 
 		const boundary = `boundary`
-		w.Header().Set("Content-Type", `multipart/x-mixed-replace; boundary=` + boundary)
+		w.Header().Set("Content-Type", `multipart/x-mixed-replace; boundary=`+boundary)
 		multipartWriter := multipart.NewWriter(w)
 		multipartWriter.SetBoundary(boundary)
 		for {
 			img := <-li
 			imgBytes := img.Bytes()
 			iw, err := multipartWriter.CreatePart(textproto.MIMEHeader{
-				"Content-type": []string{"image/jpeg"},
+				"Content-type":   []string{"image/jpeg"},
 				"Content-length": []string{strconv.Itoa(len(imgBytes))},
 			})
 			if err != nil {
@@ -92,10 +104,10 @@ func httpStream(mux* http.ServeMux, li chan *bytes.Buffer) {
 }
 
 func startServer(mux *http.ServeMux) {
-	log.Println("Starting server at ", s.domain, " on port ", s.port)
-	
+	log.Println("Starting server on port ", s.port)
+
 	// http to https redirection
-	go http.ListenAndServe(":" + strconv.Itoa(s.port), http.HandlerFunc(redirectHTTP))
+	go http.ListenAndServe(":"+strconv.Itoa(s.port), http.HandlerFunc(redirectHTTP))
 
 	var err error
 	if !s.devMode {
@@ -105,9 +117,9 @@ func startServer(mux *http.ServeMux) {
 			Cache:      autocert.DirCache(CERTIFICATES_FOLDER),
 		}
 		letsEncryptPort := s.port + 1
-		go http.ListenAndServe(":" + strconv.Itoa(letsEncryptPort), certManager.HTTPHandler(nil))
+		go http.ListenAndServe(":"+strconv.Itoa(letsEncryptPort), certManager.HTTPHandler(nil))
 		log.Println("Started Let's Encrypt on port ", letsEncryptPort)
-		
+
 		server := &http.Server{
 			Addr:    ":" + strconv.Itoa(s.port),
 			Handler: mux,
@@ -121,7 +133,7 @@ func startServer(mux *http.ServeMux) {
 			Addr:    ":" + strconv.Itoa(s.port),
 			Handler: mux,
 		}
-		err = server.ListenAndServeTLS(CERTIFICATES_FOLDER + "certificate.pem", CERTIFICATES_FOLDER + "key.pem")
+		err = server.ListenAndServeTLS(CERTIFICATES_FOLDER+"certificate.pem", CERTIFICATES_FOLDER+"key.pem")
 	}
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
@@ -164,20 +176,31 @@ func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li cha
 }
 
 func main() {
-	flag.BoolVar(&s.devMode, "dev", false, "Development mode")
+	googleOauthClientID := os.Getenv(OAUTH_CLIENT_ID_ENVVAR)
+	if googleOauthClientID == "" {
+		log.Println("OAuth client ID should be specified via " + OAUTH_CLIENT_ID_ENVVAR + " environment variable")
+		os.Exit(1)
+	}
+
+	flag.BoolVar(&s.devMode, "dev", false, "Development mode (expects server cert/key in "+CERTIFICATES_FOLDER+" folder)")
 	flag.IntVar(&s.port, "port", HTTPS_SERVER_PORT_DEFAULT, "Port to listen on")
 	flag.StringVar(&s.domain, "domain", "", "Domain name for TLS certs")
-	flag.StringVar(&s.videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Video device, e.g. /dev/video0")
-	flag.StringVar(&s.accounts, "accounts", "", "Path to accounts file")
+	flag.StringVar(&s.videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Path to video device")
+	flag.StringVar(&s.accounts, "accounts", ACCOUNTS_FILE_DEFAULT, "Path to accounts file")
+	flag.BoolVar(&s.insecure, "insecure", false, "Disable OAuth auth (Warning: Use with caution!)")
 	flag.Parse()
 
 	if s.accounts == "" {
-		log.Println("Accounts file should be specified via --acounts argument")
-		return
+		log.Println("Accounts file should be specified via --accounts argument")
+		os.Exit(1)
 	}
-	  
+
 	if s.devMode {
-		log.Println("Warning: Server started in development Mode")
+		log.Println("Warning: Server started in development mode")
+	}
+
+	if s.insecure {
+		log.Println("Warning: Server started in insecure mode: no authentication required")
 	}
 
 	log.Println("Opening camera...")
@@ -210,11 +233,11 @@ func main() {
 	go encodeToImage(cam, back, fi, li, w, h)
 
 	mux := http.NewServeMux()
-	httpIndex(mux)
-	go httpStream(mux, li)
+	httpIndex(mux, &googleOauthClientID)
+	go httpStream(mux, li, s.insecure)
 	go startServer(mux)
 
-	// Finally, read frames from the camera and write to fi for encoding
+	// Read frames from the camera and write to fi for encoding
 	for {
 		err = cam.WaitForFrame(WEBCAM_FRAME_TIMEOUT)
 		if err != nil {
