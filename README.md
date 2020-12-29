@@ -1,4 +1,4 @@
-# Project A :movie_camera: :house_with_garden:
+# Raspberry Pi Webcam Server :movie_camera: :house_with_garden:
 
 Real-time camera stream for Raspberry Pi, in the browser (written in Go).
 
