@@ -44,10 +44,6 @@ var (
 	s settings
 )
 
-func redirectHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "https://"+r.Host+r.RequestURI, http.StatusMovedPermanently)
-}
-
 func httpIndex(mux *http.ServeMux, oauthClientID *string) {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -104,10 +100,7 @@ func httpStream(mux *http.ServeMux, li chan *bytes.Buffer, disableAuth bool) {
 }
 
 func startServer(mux *http.ServeMux) {
-	log.Println("Starting server on port ", s.port)
-
-	// http to https redirection
-	go http.ListenAndServe(":"+strconv.Itoa(s.port), http.HandlerFunc(redirectHTTP))
+	log.Println("Starting server on port ", s.port, "...")
 
 	var err error
 	if !s.devMode {
@@ -138,6 +131,7 @@ func startServer(mux *http.ServeMux) {
 	if err != nil {
 		log.Fatal("ListenAndServerTLS", err)
 	}
+	log.Println("Server started successfully")
 }
 
 func encodeToImage(wc *webcam.Webcam, back chan struct{}, fi chan []byte, li chan *bytes.Buffer, w uint32, h uint32) {
@@ -196,10 +190,18 @@ func main() {
 
 	if s.devMode {
 		log.Println("Warning: Server started in development mode")
+	} else if s.domain == "" {
+		log.Fatal("Domain name should be specified via --domain argument")
 	}
 
 	if s.insecure {
 		log.Println("Warning: Server started in insecure mode: no authentication required")
+	} else {
+		file, err := os.Open(s.accounts)
+		if err != nil {
+			log.Fatal("Accounts file doesn't exist: ", err)
+		}
+		defer file.Close()
 	}
 
 	log.Println("Opening camera...")
@@ -213,12 +215,12 @@ func main() {
 	format := webcam.PixelFormat(WEBCAM_PIXEL_FORMAT)
 	_, w, h, err := cam.SetImageFormat(format, WEBCAM_SIZE_WIDTH, WEBCAM_SIZE_HEIGHT)
 	if err != nil {
-		log.Fatal("SetImageFormat return error", err)
+		log.Fatal("SetImageFormat return error: ", err)
 	}
 
 	err = cam.StartStreaming()
 	if err != nil {
-		log.Fatal("Error starting camera stream:", err)
+		log.Fatal("Error starting camera stream: ", err)
 	}
 
 	var (

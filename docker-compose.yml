@@ -1,12 +1,21 @@
 version: "3.7"
+
+volumes:
+  ACCOUNTS_FILE_PATH:
+
 services:
   projecta:
     environment:
       - OAUTH_CLIENT_ID
+      - DOMAIN
+      - ACCOUNTS_FILE_PATH
     ports:
       - "4443:4443"
       - "4444:4444"
     devices:
       - "/dev/video0:/dev/video0"
+    volumes:
+      - "$ACCOUNTS_FILE_PATH:/app/accounts:ro"
+    command: "--domain $DOMAIN --accounts /app/accounts"
     image: "projecta"
     restart: always
