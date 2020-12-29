@@ -1,6 +1,8 @@
 version: "3.7"
 services:
   projecta:
+    environment:
+      - OAUTH_CLIENT_ID
     ports:
       - "4443:4443"
       - "4444:4444"

@@ -191,8 +191,7 @@ func main() {
 	flag.Parse()
 
 	if s.accounts == "" {
-		log.Println("Accounts file should be specified via --accounts argument")
-		os.Exit(1)
+		log.Fatal("Accounts file should be specified via --accounts argument")
 	}
 
 	if s.devMode {
@@ -214,14 +213,12 @@ func main() {
 	format := webcam.PixelFormat(WEBCAM_PIXEL_FORMAT)
 	_, w, h, err := cam.SetImageFormat(format, WEBCAM_SIZE_WIDTH, WEBCAM_SIZE_HEIGHT)
 	if err != nil {
-		log.Println("SetImageFormat return error", err)
-		return
+		log.Fatal("SetImageFormat return error", err)
 	}
 
 	err = cam.StartStreaming()
 	if err != nil {
-		log.Println("err:", err)
-		return
+		log.Fatal("Error starting camera stream:", err)
 	}
 
 	var (
@@ -241,14 +238,12 @@ func main() {
 	for {
 		err = cam.WaitForFrame(WEBCAM_FRAME_TIMEOUT)
 		if err != nil {
-			log.Println(err)
-			return
+			log.Fatal(err)
 		}
 
 		frame, err := cam.ReadFrame()
 		if err != nil {
-			log.Println(err)
-			return
+			log.Fatal(err)
 		}
 		if len(frame) != 0 {
 			select {

@@ -18,7 +18,7 @@ Then, start the server:
 ```
 $ cd projecta/
 $ export OAUTH_CLIENT_ID="<your_google_oauth_client_id>"
-$ echo "<your_trusted_google_account>@gmail.com" > 
+$ echo "<your_trusted_google_account>@gmail.com" > accounts
 $ docker run TODO....
 
 # Or alternatively, 
@@ -31,7 +31,6 @@ TODO: domain and accounts file in docker!
 Open your browser (don't forget to forward the server's port!)
 
 ## Settings
-
 
 ```bash
 $ projecta --help
@@ -48,6 +47,13 @@ Usage of ./projecta:
         Port to listen on (default 4443)
   -video string
         Path to video device (default "/dev/video0")
+```
+
+## Building the Docker Image
+
+```bash
+$ cd projecta/
+$ docker build -t projecta .
 ```
 
 ## TODO
