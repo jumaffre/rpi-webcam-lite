@@ -1,6 +1,6 @@
 # Project A :movie_camera: :house_with_garden:
 
-Secure real-time camera stream for Raspberry Pi, in the browser (written in Go).
+Real-time camera stream for Raspberry Pi, in the browser (written in Go).
 
 Main features:
 - Simple setup and minimal configuration: connect a camera to your Raspberry Pi and start the server in one simple command with Docker
@@ -16,7 +16,7 @@ Main features:
 First, setup the environment:
 
 ```bash
-$ cd projecta/
+$ cd rpi-webcam-lite/
 $ export OAUTH_CLIENT_ID="<your_google_oauth_client_id>"
 $ export ACCOUNTS_FILE_PATH=</path/to/accounts/file>
 $ export DOMAIN=<your_domain_name> # Not required if started if service started in dev mode (--dev)
@@ -34,20 +34,20 @@ Open your browser and enjoy! (don't forget to forward the server's port)
 Alternatively, the full `docker run` commands is:
 
 ```bash
-$ docker run -p 4443:4443 -p 4444:4444 -v $ACCOUNTS_FILE_PATH:/app/accounts:ro --device /dev/video0:/dev/video0 -e OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID projecta --accounts /app/accounts --domain $DOMAIN
+$ docker run -p 4443:4443 -p 4444:4444 -v $ACCOUNTS_FILE_PATH:/app/accounts:ro --device /dev/video0:/dev/video0 -e OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID rpi-webcam --accounts /app/accounts --domain $DOMAIN
 ```
 
 In development mode (i.e. directly running the server on `localhost`, without Let's Encrypt certificates), run:
 
 ```bash
-$ docker run -p 4443:4443 -p 4444:4444 -v $ACCOUNTS_FILE_PATH:/app/accounts:ro --device /dev/video0:/dev/video0 -e OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID projecta --accounts /app/accounts --dev
+$ docker run -p 4443:4443 -p 4444:4444 -v $ACCOUNTS_FILE_PATH:/app/accounts:ro --device /dev/video0:/dev/video0 -e OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID rpi-webcam --accounts /app/accounts --dev
 ```
 
 ## Settings
 
 ```bash
-$ ./projecta --help
-Usage of ./projecta:
+$ ./rpi-webcam --help
+Usage of ./rpi-webcam:
   -accounts string
         Path to accounts file (default "accounts")
   -dev
@@ -67,13 +67,12 @@ Usage of ./projecta:
 First, clone this repository, then:
 
 ```bash
-$ cd projecta/
-$ docker build -t projecta .
+$ cd rpi-webcam/
+$ docker build -t rpi-webcam .
 ```
 
 ## TODO
 
+- [ ] Reduce Docker image size
 - [ ] WebRTC
 - [ ] Motion detection
-
-

@@ -1,4 +1,4 @@
-module github.com/jumaffre/projecta
+module github.com/jumaffre/rpi-webcam-lite
 
 go 1.13
 

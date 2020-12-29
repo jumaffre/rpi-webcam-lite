@@ -5,11 +5,11 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download 
 COPY . .
-RUN go build -o projecta . 
+RUN go build -o rpi-webcam . 
 
 # For the app
 EXPOSE 4443 
 # For Let's Encrypt
 EXPOSE 4444
 
-ENTRYPOINT ["/app/projecta"]
+ENTRYPOINT ["/app/rpi-webcam"]

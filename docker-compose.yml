@@ -4,7 +4,7 @@ volumes:
   ACCOUNTS_FILE_PATH:
 
 services:
-  projecta:
+  rpi-webcam-lite:
     environment:
       - OAUTH_CLIENT_ID
       - DOMAIN
@@ -17,5 +17,5 @@ services:
     volumes:
       - "$ACCOUNTS_FILE_PATH:/app/accounts:ro"
     command: "--domain $DOMAIN --accounts /app/accounts"
-    image: "projecta"
+    image: "rpi-webcam"
     restart: always
