@@ -1,20 +1,22 @@
-FROM golang:latest
-
-LABEL maintainer="Julien Maffre <maffre.jul@gmail.com>"
+# First, build app
+FROM golang:alpine AS builder
 
 WORKDIR /app
-
 COPY go.mod go.sum ./
-
 RUN go mod download 
-
 COPY . .
-
 RUN go build -o projecta . 
 
-EXPOSE 4443 
 
+# Then, create minimal image for app
+# TODO: Use scratch image?
+FROM golang:alpine
+
+COPY --from=builder /app/projecta /app/projecta
+
+# For the app
+EXPOSE 4443 
 # For Let's Encrypt
 EXPOSE 4444
 
-CMD ["./projecta"]
+ENTRYPOINT ["/app/projecta"]

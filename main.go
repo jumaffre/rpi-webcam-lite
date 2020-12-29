@@ -182,9 +182,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	flag.BoolVar(&s.devMode, "dev", false, "Development mode (expects server cert/key in "+CERTIFICATES_FOLDER+" folder)")
+	flag.BoolVar(&s.devMode, "dev", false, "Development mode, using self-signed certificate instead of Let's Encrypt (expects server cert/key in "+CERTIFICATES_FOLDER+" folder)")
 	flag.IntVar(&s.port, "port", HTTPS_SERVER_PORT_DEFAULT, "Port to listen on")
-	flag.StringVar(&s.domain, "domain", "", "Domain name for TLS certs")
+	flag.StringVar(&s.domain, "domain", "", "Domain name of the service")
 	flag.StringVar(&s.videoDevice, "video", WEBCAM_DEVICE_DEFAULT, "Path to video device")
 	flag.StringVar(&s.accounts, "accounts", ACCOUNTS_FILE_DEFAULT, "Path to accounts file")
 	flag.BoolVar(&s.insecure, "insecure", false, "Disable OAuth auth (Warning: Use with caution!)")
